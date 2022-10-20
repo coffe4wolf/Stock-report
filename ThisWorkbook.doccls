@@ -1,0 +1,17 @@
+﻿Option Explicit
+
+
+Private Sub Workbook_Open()
+
+    Call init
+
+    Dim sqlInitMaterialTypesCombobox As String
+
+    sqlInitMaterialTypesCombobox = "SELECT [Type] FROM dbo.TM3_WSStockReport_MasterMaterialTypes ORDER BY [Department], [Type];"
+
+    Set conn = CreateConnection(DbServerAddress, DbName)
+    Call InitComboBoxFromSqlQuery(ThisWorkbook.Sheets("Stock report").ComboBox1, sqlInitMaterialTypesCombobox, conn)
+    
+    Call indicateSafetyStockEntered(ThisWorkbook.Sheets("settingsSheet").Range("safetyStockMode").value)
+
+End Sub

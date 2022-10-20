@@ -1,0 +1,270 @@
+﻿Option Explicit
+
+Const DbServerAddress           As String = "erw-dev.spd.ru\INS01"
+Const DbName                    As String = "SPD_MRP"
+
+'Const materialCodeColumn        As String = "C"
+'Const enterSafetyStockColumn    As String = "I"
+'Const rowToStart                As Long = 6
+    
+    
+
+'Private Sub chooseColumnsToHide_CommandButton_Click()
+'
+'    Call setColumnsToHide
+'
+'End Sub
+
+Private Sub CommandButton1_Click()
+
+    Call LoadTM3StockReport
+
+End Sub
+
+Private Sub markMaterialAsDeleted_CommandButton_Click()
+
+    Call markMaterialAsDeleted
+
+End Sub
+
+Private Sub CommandButton2_Click()
+
+    Call saveMaterialGroups
+
+End Sub
+
+Private Sub CommandButton3_Click()
+
+    Call setColumnsToHide
+
+End Sub
+
+Private Sub markMMAsDeleted_CommandButton_Click()
+
+     Call markUnmarkMaterialAsDeleted
+
+End Sub
+
+Private Sub saveComments_CommandButton_Click()
+
+    Call saveCommentsAndSafetyStocks
+
+
+End Sub
+
+Private Sub saveMaterialGrouppp_CommandButton_Click()
+
+    Call saveMaterialGroups
+
+End Sub
+
+Private Sub showHideColumns_CommandButton_Click()
+
+    Call hideColumns
+
+End Sub
+
+Private Sub Worksheet_Change(ByVal Target As Range)
+    'Debug.Print "Something changed in cell " & Target.Address(0, 0)
+    Call saveCommentInCell(Target)
+    Call saveSafetyStockInCell(Target)
+End Sub
+
+Sub saveCommentInCell(rng As Range)
+
+    Dim conn                  As ADODB.Connection
+    Dim rs                    As ADODB.Recordset
+    
+    Dim enterCommentColumn      As String
+    Dim materialCodeColumn      As String
+    Dim materialTypeColumn      As String
+    Dim batchColumn             As String
+    Dim commentHistoryColumn    As String
+    
+    Dim comment                 As String
+    Dim materialCode            As String
+    Dim materialType            As String
+    Dim batch                   As String
+    Dim updatedCommentHistory   As String
+    
+    Dim offsetToMaterialCode    As Long
+    Dim offsetToMaterialType    As Long
+    Dim offsetToBatch           As Long
+    Dim offsetToCommentHistory  As Long
+    
+    Dim enterCommentColumnNumber As Long
+    
+    Dim sqlInsert               As String
+    Dim sqlValues               As String
+    Dim sqlQuery                As String
+    Dim sqlUpdateCommentHistory As String
+    
+    sqlInsert = "EXEC TM3.[DBSUB_Insert_Comment] "
+    sqlUpdateCommentHistory = "EXEC TM3.[DBSUB_Get_CommentHistory] "
+    
+    
+    enterCommentColumn = "S"
+    materialCodeColumn = "C"
+    materialTypeColumn = "A"
+    batchColumn = "D"
+    commentHistoryColumn = "T"
+    
+    enterCommentColumnNumber = m_common.ColumnLetterToNumber(enterCommentColumn)
+    
+    If rng.Count > 1 Then
+        Set rng = rng(0, 0)
+    End If
+    
+    If Trim(rng.value) = "" Then
+        Exit Sub
+    End If
+    
+    If rng.column <> enterCommentColumnNumber Then
+        Exit Sub
+    End If
+    
+    offsetToMaterialCode = m_common.ColumnLetterToNumber(materialCodeColumn) - m_common.ColumnLetterToNumber(enterCommentColumn)
+    offsetToMaterialType = m_common.ColumnLetterToNumber(materialTypeColumn) - m_common.ColumnLetterToNumber(enterCommentColumn)
+    offsetToBatch = m_common.ColumnLetterToNumber(batchColumn) - m_common.ColumnLetterToNumber(enterCommentColumn)
+    offsetToCommentHistory = m_common.ColumnLetterToNumber(commentHistoryColumn) - m_common.ColumnLetterToNumber(enterCommentColumn)
+    
+    
+    ' Get data for query.
+    materialCode = rng.Offset(0, offsetToMaterialCode).value
+    materialType = rng.Offset(0, offsetToMaterialType).value
+    batch = rng.Offset(0, offsetToBatch).value
+    comment = rng.value
+
+    If Trim(materialCode) = "" And Trim(materialType) = "" Then
+        MsgBox ("Error: Material code and Material type cannot be empty. Comment not updated.")
+        Exit Sub
+    End If
+
+    ' Create query.
+    sqlValues = materialCode & "," & StringToMSSQLFormat(materialType, True) & "," & StringToMSSQLFormat(comment, True) & "," & StringToMSSQLFormat(batch, True)
+    
+    sqlQuery = sqlInsert & sqlValues
+
+    Set conn = m_common.CreateConnection(DbServerAddress, DbName, , 5)
+    
+    ' Save comment to DB.
+    On Error GoTo ErrHandler
+    conn.Execute (sqlQuery)
+
+    ' Update comment history cell.
+    sqlQuery = sqlUpdateCommentHistory & materialCode & "," & StringToMSSQLFormat(batch, True) & "," & StringToMSSQLFormat(materialType, True)
+    Set rs = conn.Execute(sqlQuery)
+
+    rng.Offset(0, offsetToCommentHistory).value = rs.Fields(0).value
+    rng.value = ""
+
+
+    Exit Sub
+    
+ErrHandler:
+
+    MsgBox ("Error! Comment not saved, reason: " & Err.Description & "(" & Err.Number & ")")
+    
+End Sub
+
+
+Sub saveSafetyStockInCell(rng As Range)
+
+    Dim conn                  As ADODB.Connection
+    Dim rs                    As ADODB.Recordset
+    
+    Dim enterSafetyStockColumn  As String
+    Dim materialCodeColumn      As String
+    
+    Dim safetyStock             As String
+    Dim materialCode            As String
+    
+    Dim offsetToMaterialCode    As Long
+    
+    Dim enterSafetyStockColumnNumber As Long
+    
+    Dim sqlInsert               As String
+    Dim sqlValues               As String
+    Dim sqlQuery                As String
+    Dim sqlUpdateCommentHistory As String
+    
+    Dim rowToStart              As Long
+    
+    Dim lr                      As Long
+    Dim rowsCounter             As Long
+    
+    rowToStart = 6
+
+    enterSafetyStockColumn = "I"
+    materialCodeColumn = "C"
+    
+    sqlInsert = "EXEC TM3.[DBSUB_UpdateSafetyStock] "
+    
+    enterSafetyStockColumnNumber = m_common.ColumnLetterToNumber(enterSafetyStockColumn)
+    
+    If rng.Count > 1 Then
+        Set rng = rng(0, 0)
+    End If
+    
+    If Trim(rng.value) = "" Then
+        Exit Sub
+    End If
+    
+    If rng.column <> enterSafetyStockColumnNumber Then
+        Exit Sub
+    End If
+    
+    offsetToMaterialCode = m_common.ColumnLetterToNumber(materialCodeColumn) - m_common.ColumnLetterToNumber(enterSafetyStockColumn)
+    
+    ' Get data for query.
+    materialCode = rng.Offset(0, offsetToMaterialCode).value
+    safetyStock = rng.value
+
+    If Trim(materialCode) = "" Then
+        MsgBox ("Error: Material code cannot be empty. Comment not updated.")
+        Exit Sub
+    End If
+
+    ' Create query.
+    sqlValues = materialCode & "," & NumberToMSSQLFormat(safetyStock)
+    
+    sqlQuery = sqlInsert & sqlValues
+
+    Set conn = m_common.CreateConnection(DbServerAddress, DbName, , 5)
+    
+    ' Save comment to DB.
+    On Error GoTo ErrHandler
+    conn.Execute (sqlQuery)
+    
+    
+    ' Update safety stock on worksheet.
+    sqlQuery = "SELECT [Safety stock (Entered)] FROM [dbo].[TM3_WSStockReport_MasterMaterialsList] WHERE [Material code] = " & materialCode
+    Set rs = conn.Execute(sqlQuery)
+    
+    Application.EnableEvents = False
+    
+    With ThisWorkbook.Sheets("Stock report")
+        lr = GetBorders("LR", .Name)
+        For rowsCounter = rowToStart To lr
+            
+            If .Range(materialCodeColumn & rowsCounter).value = materialCode Then
+                .Range(enterSafetyStockColumn & rowsCounter).value = rs.Fields(0).value
+            End If
+        
+        Next rowsCounter
+    End With
+    
+    Application.EnableEvents = True
+    
+    MsgBox ("Safety stock updated.")
+
+
+    Exit Sub
+    
+ErrHandler:
+
+    MsgBox ("Error! Comment not saved, reason: " & Err.Description & "(" & Err.Number & ")")
+    
+End Sub
+
+

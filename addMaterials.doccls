@@ -1,0 +1,31 @@
+﻿Option Explicit
+
+Private Sub addMMsToMaster_CommandButton_Click()
+
+    Call addMMsToMasterMaterialsList
+    
+End Sub
+
+Private Sub addMMType_CommandButton_Click()
+
+    Call addMMType
+    
+    Call addDataValidationTypesToAddMaterialsSheet
+
+End Sub
+
+Private Sub deleteMMsFromMaster_CommandButton_Click()
+    
+    Call deleteMMFromMaterialList
+
+End Sub
+
+Private Sub Worksheet_Activate()
+
+    Call addDataValidationTypesToAddMaterialsSheet
+
+End Sub
+
+Private Sub Worksheet_SelectionChange(ByVal Target As Range)
+
+End Sub
